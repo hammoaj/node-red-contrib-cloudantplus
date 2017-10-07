@@ -1,0 +1,40 @@
+{
+  "name": "node-red-contrib-cloudantplus",
+  "version": "0.0.1",
+  "description": "A Node-RED node to access Cloudant and couchdb databases",
+  "dependencies": {
+    "cfenv": "1.0.x",
+    "cloudant": "1.8.x"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hammoaj/node-red-contrib-cloudantplus.git"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "node-red",
+    "cloudant",
+    "couchdb",
+    "bluemix"
+  ],
+  "node-red": {
+    "nodes": {
+      "cloudant+": "cloudantplus.js"
+    }
+  },
+  "author": {
+    "name": "Adam Hammond",
+    "email": "adam_hammond@uk.ibm.com"
+  },
+  "contributors": [
+    {
+      "name": "Túlio Pascoal"
+    },
+    {
+      "name": "Igor Leão"
+    },
+    {
+      "name": "Luiz Gustavo Ferraz Aoqui"
+    }
+  ]
+}
