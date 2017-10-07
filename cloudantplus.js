@@ -67,7 +67,7 @@ module.exports = function(RED) {
         if ((credentials) && (credentials.hasOwnProperty("username"))) { this.username = credentials.username; }
         if ((credentials) && (credentials.hasOwnProperty("pass"))) { this.password = credentials.pass; }
     }
-    RED.nodes.registerType("cloudant+", CloudantNode, {
+    RED.nodes.registerType("cloudantplus", CloudantNode, {
         credentials: {
             pass: {type:"password"},
             username: {type:"text"}
@@ -222,7 +222,7 @@ module.exports = function(RED) {
             });
         }
     };
-    RED.nodes.registerType("cloudant+ out", CloudantOutNode);
+    RED.nodes.registerType("cloudantplus out", CloudantOutNode);
 
 
     function CloudantInNode(n) {
@@ -351,7 +351,7 @@ module.exports = function(RED) {
             node.send(msg);
         }
     }
-    RED.nodes.registerType("cloudant+ in", CloudantInNode);
+    RED.nodes.registerType("cloudantplus in", CloudantInNode);
 
     // must return an object with, at least, values for account, username and
     // password for the Cloudant service at the top-level of the object

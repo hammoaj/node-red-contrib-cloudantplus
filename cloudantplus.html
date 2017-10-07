@@ -14,7 +14,7 @@
   limitations under the License.
 -->
 
-<script type="text/x-red" data-template-name="cloudant+">
+<script type="text/x-red" data-template-name="cloudantplus">
     <div class="form-row">
         <label for="node-config-input-host"><i class="fa fa-bookmark"></i> Host</label>
         <input class="input-append-left" type="text" id="node-config-input-host" placeholder="[username].cloudant.com or http://your-server.com">
@@ -34,7 +34,7 @@
 </script>
 
 <script type="text/javascript">
-    RED.nodes.registerType("cloudant+",{
+    RED.nodes.registerType("cloudantplus",{
         category: "config",
         color: "rgb(114, 199, 231)",
         defaults: {
@@ -51,7 +51,7 @@
     });
 </script>
 
-<script type="text/x-red" data-template-name="cloudant+ out">
+<script type="text/x-red" data-template-name="cloudantplus out">
     <div class="form-row">
         <label for="node-input-service"><i class="fa fa-folder-close"></i> Service</label>
         <select id="node-input-service" style="width:68%;">
@@ -94,7 +94,7 @@
     </script>
 </script>
 
-<script type="text/x-red" data-template-name="cloudant+ in">
+<script type="text/x-red" data-template-name="cloudantplus in">
     <div class="form-row">
         <label for="node-input-service"><i class="fa fa-folder-close"></i> Service</label>
         <select id="node-input-service" style="width:68%;">
@@ -132,12 +132,12 @@
 </script>
 
 <script type="text/javascript">
-    RED.nodes.registerType("cloudant+ out", {
+    RED.nodes.registerType("cloudantplus out", {
         category: "storage-output",
         color: "rgb(114, 199, 231)",
         defaults: {
             name: { value: "" },
-            cloudant: { type:"cloudant+", validate:validateServer},
+            cloudant: { type:"cloudantplus", validate:validateServer},
             database: { value:"", required:true, validate:validateDatabase },
             service: { value:"", required:true },
             payonly: { value:false },
@@ -154,12 +154,12 @@
         oneditprepare: oneditprepare
     });
 
-    RED.nodes.registerType("cloudant+ in", {
+    RED.nodes.registerType("cloudantplus in", {
         category: "storage-input",
         color: "rgb(114, 199, 231)",
         defaults: {
             name    : { value:"" },
-            cloudant: { type:"cloudant+", validate:validateServer },
+            cloudant: { type:"cloudantplus", validate:validateServer },
             database: { value:"", required:true, validate:validateDatabase },
             service : { value:"", required:true },
             search  : { value:"_id_", required:true },
@@ -241,7 +241,7 @@
     }
 </script>
 
-<script type="text/x-red" data-help-name="cloudant out">
+<script type="text/x-red" data-help-name="cloudantplus out">
    <p>
        A simple Cloudant output node. Stores <b>msg</b> in a chosen database.
     </p>
@@ -281,7 +281,7 @@
     </p>
 </script>
 
-<script type="text/x-red" data-help-name="cloudant in">
+<script type="text/x-red" data-help-name="cloudantplus in">
    <p>
         A node for searching documents in a Cloudant database.
     </p>
