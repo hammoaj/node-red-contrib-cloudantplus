@@ -19,7 +19,7 @@
   ],
   "node-red": {
     "nodes": {
-      "cloudant+": "cloudantplus.js"
+      "cloudantplus": "cloudantplus.js"
     }
   },
   "author": {
