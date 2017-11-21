@@ -83,6 +83,9 @@ module.exports = function(RED) {
         this.database       = _cleanDatabaseName(n.database, this);
         this.cloudantConfig = _getCloudantConfig(n);
 
+        this.retries        = n.retries || 5; // number of connection retries
+        this.timeout        = n.timeout || 1000; // timeout between retries
+
         var node = this;
         var credentials = {
             account:  node.cloudantConfig.account,
@@ -91,117 +94,133 @@ module.exports = function(RED) {
             url: node.cloudantConfig.url
         };
 
-        Cloudant(credentials, function(err, cloudant) {
-            if (err) { node.error(err.description, err); }
-            else {
-                // check if the database exists and create it if it doesn't
-                createDatabase(cloudant, node);
+
+        node.status({fill:"grey",shape:"ring",text:"disconnected"});
+
+        doConnect(credentials, 1);
+
+        function doConnect(credentials, tryNum) {
+          Cloudant(credentials, function(err, cloudant) {
+            if (err) {
+              if (tryNum <= node.retries) {
+                node.status({fill:"yellow",shape:"ring",text:"retrying..."});
+                setTimeout(function () {
+                  doConnect(credentials, tryNum + 1)
+                }, node.timeout)
+              } else {
+                node.error(err.description, err);
+                node.status({fill:"red",shape:"dot",text:"error"});
+              }
+            } else {
+              node.status({fill:"green",shape:"dot",text:"connected"});
+              createDatabase(cloudant, node);
+              node.on("input", function(msg) {
+                  if (err) {
+                      node.error(err.description, err);
+                      return;
+                  }
+
+                  delete msg._msgid;
+                  handleMessage(cloudant, node, msg);
+              });
             }
-
-            node.on("input", function(msg) {
-                if (err) {
-                    return node.error(err.description, err);
-                }
-
-                delete msg._msgid;
-                handleMessage(cloudant, node, msg);
-            });
-        });
+          })
+        };
 
         function createDatabase(cloudant, node) {
-            cloudant.db.list(function(err, all_dbs) {
-                if (err) {
-                    if (err.status_code === 403) {
-                        // if err.status_code is 403 then we are probably using
-                        // an api key, so we can assume the database already exists
-                        return;
-                    }
-                    node.error("Failed to list databases: " + err.description, err);
-                }
-                else {
-                    if (all_dbs && all_dbs.indexOf(node.database) < 0) {
-                        cloudant.db.create(node.database, function(err, body) {
-                            if (err) {
-                                node.error(
-                                    "Failed to create database: " + err.description,
-                                    err
-                                );
-                            }
-                        });
-                    }
-                }
-            });
+          cloudant.db.list(function(err, all_dbs) {
+            if (err) {
+              if (err.status_code === 403) {
+                // if err.status_code is 403 then we are probably using
+                // an api key, so we can assume the database already exists
+                return;
+              }
+              node.error("Failed to list databases: " + err.description, err);
+            }
+            else {
+              if (all_dbs && all_dbs.indexOf(node.database) < 0) {
+                cloudant.db.create(node.database, function(err, body) {
+                  if (err) {
+                    node.error("Failed to create database: " + err.description, err);
+                  }
+                });
+              }
+            }
+          });
         }
 
         function handleMessage(cloudant, node, msg) {
-            if (node.operation === "insert") {
-                var msg  = node.payonly ? msg.payload : msg;
-                var root = node.payonly ? "payload" : "msg";
-                var doc  = parseMessage(msg, root);
+          if (node.operation === "insert") {
+            var msg  = node.payonly ? msg.payload : msg;
+            var root = node.payonly ? "payload" : "msg";
+            var doc  = parseMessage(msg, root);
 
-                insertDocument(cloudant, node, doc, MAX_ATTEMPTS, function(err, body) {
-                    if (err) {
-                        console.trace();
-                        console.log(node.error.toString());
-                        node.error("Failed to insert document: " + err.description, msg);
-                    }
-                });
-            }
-            else if (node.operation === "delete") {
-                var doc = parseMessage(msg.payload || msg, "");
+            insertDocument(cloudant, node, doc, MAX_ATTEMPTS, function(err, body) {
+              if (err) {
+                  console.trace();
+                  console.log(node.error.toString());
+                  node.error("Failed to insert document: " + err.description, msg);
+              };
+              node.status({fill:"green",shape:"dot",text:"connected"});
+            });
+          }
+          else if (node.operation === "delete") {
+            var doc = parseMessage(msg.payload || msg, "");
 
-                if ("_rev" in doc && "_id" in doc) {
-                    var db = cloudant.use(node.database);
-                    db.destroy(doc._id, doc._rev, function(err, body) {
-                        if (err) {
-                            node.error("Failed to delete document: " + err.description, msg);
-                        }
-                    });
-                } else {
-                    var err = new Error("_id and _rev are required to delete a document");
-                    node.error(err.message, msg);
-                }
+            if ("_rev" in doc && "_id" in doc) {
+              var db = cloudant.use(node.database);
+              db.destroy(doc._id, doc._rev, function(err, body) {
+                if (err) {
+                  node.error("Failed to delete document: " + err.description, msg);
+                };
+                node.status({fill:"green",shape:"dot",text:"connected"});
+              });
+            } else {
+              var err = new Error("_id and _rev are required to delete a document");
+              node.error(err.message, msg);
             }
+          };
+
         }
 
         function parseMessage(msg, root) {
-            if (typeof msg !== "object") {
-                try {
-                    msg = JSON.parse(msg);
-                    // JSON.parse accepts numbers, so make sure that an
-                    // object is return, otherwise create a new one
-                    if (typeof msg !== "object") {
-                        msg = JSON.parse('{"' + root + '":"' + msg + '"}');
-                    }
-                } catch (e) {
-                    // payload is not in JSON format
-                    msg = JSON.parse('{"' + root + '":"' + msg + '"}');
-                }
+          if (typeof msg !== "object") {
+            try {
+              msg = JSON.parse(msg);
+              // JSON.parse accepts numbers, so make sure that an
+              // object is return, otherwise create a new one
+              if (typeof msg !== "object") {
+                msg = JSON.parse('{"' + root + '":"' + msg + '"}');
+              }
+            } catch (e) {
+              // payload is not in JSON format
+              msg = JSON.parse('{"' + root + '":"' + msg + '"}');
             }
-            return cleanMessage(msg);
+          }
+          return cleanMessage(msg);
         }
 
         // fix field values that start with _
         // https://wiki.apache.org/couchdb/HTTP_Document_API#Special_Fields
         function cleanMessage(msg) {
-            for (var key in msg) {
-                if (msg.hasOwnProperty(key) && !isFieldNameValid(key)) {
-                    // remove _ from the start of the field name
-                    var newKey = key.substring(1, msg.length);
-                    msg[newKey] = msg[key];
-                    delete msg[key];
-                    node.warn("Property '" + key + "' renamed to '" + newKey + "'.");
-                }
+          for (var key in msg) {
+            if (msg.hasOwnProperty(key) && !isFieldNameValid(key)) {
+              // remove _ from the start of the field name
+              var newKey = key.substring(1, msg.length);
+              msg[newKey] = msg[key];
+              delete msg[key];
+              node.warn("Property '" + key + "' renamed to '" + newKey + "'.");
             }
-            return msg;
+          }
+          return msg;
         }
 
         function isFieldNameValid(key) {
-            var allowedWords = [
-                '_id', '_rev', '_attachments', '_deleted', '_revisions',
-                '_revs_info', '_conflicts', '_deleted_conflicts', '_local_seq'
-            ];
-            return key[0] !== '_' || allowedWords.indexOf(key) >= 0;
+          var allowedWords = [
+            '_id', '_rev', '_attachments', '_deleted', '_revisions',
+            '_revs_info', '_conflicts', '_deleted_conflicts', '_local_seq'
+          ];
+          return key[0] !== '_' || allowedWords.indexOf(key) >= 0;
         }
 
         // Inserts a document +doc+ in a database +db+ that migh not exist
@@ -209,21 +228,19 @@ module.exports = function(RED) {
         // with the name specified in +db+. To prevent loops, it only tries
         // +attempts+ number of times.
         function insertDocument(cloudant, node, doc, attempts, callback) {
-            var db = cloudant.use(node.database);
-            db.insert(doc, function(err, body) {
-                if (err && err.status_code === 404 && attempts > 0) {
-                    // status_code 404 means the database was not found
-                    return cloudant.db.create(db.config.db, function() {
-                        insertDocument(cloudant, node, doc, attempts-1, callback);
-                    });
-                }
-
-                callback(err, body);
-            });
+          var db = cloudant.use(node.database);
+          db.insert(doc, function(err, body) {
+            if (err && err.status_code === 404 && attempts > 0) {
+              // status_code 404 means the database was not found
+              return cloudant.db.create(db.config.db, function() {
+                  insertDocument(cloudant, node, doc, attempts-1, callback);
+              });
+            }
+            callback(err, body);
+          });
         }
     };
     RED.nodes.registerType("cloudantplus out", CloudantOutNode);
-
 
     function CloudantInNode(n) {
         RED.nodes.createNode(this,n);
@@ -235,6 +252,9 @@ module.exports = function(RED) {
         this.index          = n.index;
         this.inputId        = "";
 
+        this.retries        = n.retries || 5; // number of connection retries
+        this.timeout        = n.timeout || 1000; // timeout between retries
+
         var node = this;
         var credentials = {
             account:  node.cloudantConfig.account,
@@ -243,48 +263,65 @@ module.exports = function(RED) {
             url: node.cloudantConfig.url
         };
 
-        Cloudant(credentials, function(err, cloudant) {
-            if (err) { node.error(err.description, err); }
+        node.status({fill:"red",shape:"ring",text:"disconnected"});
 
-            node.on("input", function(msg) {
-                if (err) {
-                    return node.error(err.description, err);
-                }
+        doConnect(credentials, 1);
 
-                var db = cloudant.use(node.database);
-                var options = (typeof msg.payload === "object") ? msg.payload : {};
+        function doConnect(credentials, tryNum) {
+          Cloudant(credentials, function(err, cloudant) {
+            if (err) {
+              if (tryNum <= node.retries) {
+                node.status({fill:"yellow",shape:"ring",text:"retrying..."});
+                setTimeout(function() { doConnect(credentials, tryNum + 1) }, node.timeout)
+              } else {
+                node.error(err.description, err);
+                node.status({fill:"red",shape:"dot",text:err.description});
+              }
+            } else {
+              node.status({fill:"green",shape:"dot",text:"connected"});
+              node.on("input", function(msg) {
+                if (err) { return node.error(err.description, err); }
+                handleMsg(cloudant, node, msg);
+              });
+            }
+          })
+        };
 
-                if (node.search === "_id_") {
-                    var id = getDocumentId(msg.payload);
-                    node.inputId = id;
 
-                    db.get(id, function(err, body) {
-                        sendDocumentOnPayload(err, body, msg);
-                    });
-                }
-                else if (node.search === "_idx_") {
-                    options.query = options.query || options.q || formatSearchQuery(msg.payload);
-                    options.include_docs = options.include_docs || true;
-                    options.limit = options.limit || 200;
+        function handleMsg(cloudant, node, msg) {
+          var db = cloudant.use(node.database);
+          var options = (typeof msg.payload === "object") ? msg.payload : {};
 
-                    db.search(node.design, node.index, options, function(err, body) {
-                        sendDocumentOnPayload(err, body, msg);
-                    });
-                }
-                else if (node.search === "_view_") {
-                    db.view(node.design, node.index, options, function(err, body) {
-                        sendDocumentOnPayload(err, body, msg);
-                    });
-                }
-                else if (node.search === "_all_") {
-                    options.include_docs = options.include_docs || true;
+          if (node.search === "_id_") {
+            var id = getDocumentId(msg.payload);
+            node.inputId = id;
 
-                    db.list(options, function(err, body) {
-                        sendDocumentOnPayload(err, body, msg);
-                    });
-                }
+            db.get(id, function(err, body) {
+              sendDocumentOnPayload(err, body, msg, node);
             });
-        });
+          }
+          else if (node.search === "_idx_") {
+            options.query = options.query || options.q || formatSearchQuery(msg.payload);
+            options.include_docs = options.include_docs || true;
+            options.limit = options.limit || 200;
+
+            db.search(node.design, node.index, options, function(err, body) {
+                sendDocumentOnPayload(err, body, msg, node);
+            });
+          }
+          else if (node.search === "_view_") {
+            db.view(node.design, node.index, options, function(err, body) {
+                sendDocumentOnPayload(err, body, msg, node);
+            });
+          }
+          else if (node.search === "_all_") {
+              options.include_docs = options.include_docs || true;
+
+              db.list(options, function(err, body) {
+                  sendDocumentOnPayload(err, body, msg, node);
+              });
+          };
+        };
 
         function getDocumentId(payload) {
             if (typeof payload === "object") {
@@ -311,8 +348,9 @@ module.exports = function(RED) {
             return query;
         }
 
-        function sendDocumentOnPayload(err, body, msg) {
+        function sendDocumentOnPayload(err, body, msg, node) {
             if (!err) {
+                node.status({fill:"green",shape:"dot",text:"connected"});
                 msg.cloudant = body;
 
                 if ("rows" in body) {
@@ -332,17 +370,18 @@ module.exports = function(RED) {
                         });
                 } else {
                     msg.payload = body;
-                }
+                };
             }
             else {
                 msg.payload = null;
 
                 if (err.description === "missing") {
-                    node.warn(
-                        "Document '" + node.inputId +
-                        "' not found in database '" + node.database + "'.",
-                        err
-                    );
+                  node.warn(
+                      "Document '" + node.inputId +
+                      "' not found in database '" + node.database + "'.",
+                      err
+                  );
+                  node.status({fill:"green",shape:"dot",text:"connected"});
                 } else {
                     node.error(err.description, err);
                 }
