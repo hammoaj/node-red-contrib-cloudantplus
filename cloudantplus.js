@@ -110,7 +110,7 @@ module.exports = function(RED) {
                 }, node.timeout)
               } else {
                 node.error(err.description, err);
-                node.status({fill:"red",shape:"dot",text:"err.description"});
+                node.status({fill:"red",shape:"dot",text:err.description});
               }
             } else {
               node.status({fill:"green",shape:"dot",text:"connected"});
@@ -276,7 +276,7 @@ module.exports = function(RED) {
                 }, node.timeout)
               } else {
                 node.error(err.description, err);
-                node.status({fill:"red",shape:"dot",text:"err.description"});
+                node.status({fill:"red",shape:"dot",text:err.description});
               }
             } else {
               node.status({fill:"green",shape:"dot",text:"connected"});
