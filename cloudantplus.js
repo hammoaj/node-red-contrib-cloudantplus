@@ -103,21 +103,21 @@ module.exports = function(RED) {
           Cloudant(credentials, function(err, cloudant) {
             if (err) {
               if (tryNum <= node.retries) {
-                node.warn(err.description, err);
                 node.status({fill:"yellow",shape:"ring",text:"retrying..."});
                 setTimeout(function () {
                   doConnect(credentials, tryNum + 1)
                 }, node.timeout)
               } else {
                 node.error(err.description, err);
-                node.status({fill:"red",shape:"dot",text:err.description});
+                node.status({fill:"red",shape:"dot",text:"error"});
               }
             } else {
               node.status({fill:"green",shape:"dot",text:"connected"});
               createDatabase(cloudant, node);
               node.on("input", function(msg) {
                   if (err) {
-                      return node.error(err.description, err);
+                      node.error(err.description, err);
+                      return;
                   }
 
                   delete msg._msgid;
@@ -160,7 +160,8 @@ module.exports = function(RED) {
                   console.trace();
                   console.log(node.error.toString());
                   node.error("Failed to insert document: " + err.description, msg);
-              }
+              };
+              node.status({fill:"green",shape:"dot",text:"connected"});
             });
           }
           else if (node.operation === "delete") {
@@ -171,13 +172,15 @@ module.exports = function(RED) {
               db.destroy(doc._id, doc._rev, function(err, body) {
                 if (err) {
                   node.error("Failed to delete document: " + err.description, msg);
-                }
+                };
+                node.status({fill:"green",shape:"dot",text:"connected"});
               });
             } else {
               var err = new Error("_id and _rev are required to delete a document");
               node.error(err.message, msg);
             }
-          }
+          };
+
         }
 
         function parseMessage(msg, root) {
@@ -233,7 +236,6 @@ module.exports = function(RED) {
                   insertDocument(cloudant, node, doc, attempts-1, callback);
               });
             }
-
             callback(err, body);
           });
         }
@@ -269,7 +271,6 @@ module.exports = function(RED) {
           Cloudant(credentials, function(err, cloudant) {
             if (err) {
               if (tryNum <= node.retries) {
-                node.warn(err.description, err);
                 node.status({fill:"yellow",shape:"ring",text:"retrying..."});
                 setTimeout(function() { doConnect(credentials, tryNum + 1) }, node.timeout)
               } else {
@@ -296,7 +297,7 @@ module.exports = function(RED) {
             node.inputId = id;
 
             db.get(id, function(err, body) {
-              sendDocumentOnPayload(err, body, msg);
+              sendDocumentOnPayload(err, body, msg, node);
             });
           }
           else if (node.search === "_idx_") {
@@ -305,21 +306,21 @@ module.exports = function(RED) {
             options.limit = options.limit || 200;
 
             db.search(node.design, node.index, options, function(err, body) {
-                sendDocumentOnPayload(err, body, msg);
+                sendDocumentOnPayload(err, body, msg, node);
             });
           }
           else if (node.search === "_view_") {
             db.view(node.design, node.index, options, function(err, body) {
-                sendDocumentOnPayload(err, body, msg);
+                sendDocumentOnPayload(err, body, msg, node);
             });
           }
           else if (node.search === "_all_") {
               options.include_docs = options.include_docs || true;
 
               db.list(options, function(err, body) {
-                  sendDocumentOnPayload(err, body, msg);
+                  sendDocumentOnPayload(err, body, msg, node);
               });
-          }
+          };
         };
 
         function getDocumentId(payload) {
@@ -347,8 +348,9 @@ module.exports = function(RED) {
             return query;
         }
 
-        function sendDocumentOnPayload(err, body, msg) {
+        function sendDocumentOnPayload(err, body, msg, node) {
             if (!err) {
+                node.status({fill:"green",shape:"dot",text:"connected"});
                 msg.cloudant = body;
 
                 if ("rows" in body) {
@@ -368,17 +370,18 @@ module.exports = function(RED) {
                         });
                 } else {
                     msg.payload = body;
-                }
+                };
             }
             else {
                 msg.payload = null;
 
                 if (err.description === "missing") {
-                    node.warn(
-                        "Document '" + node.inputId +
-                        "' not found in database '" + node.database + "'.",
-                        err
-                    );
+                  node.warn(
+                      "Document '" + node.inputId +
+                      "' not found in database '" + node.database + "'.",
+                      err
+                  );
+                  node.status({fill:"green",shape:"dot",text:"connected"});
                 } else {
                     node.error(err.description, err);
                 }
