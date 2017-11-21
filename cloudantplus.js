@@ -106,8 +106,8 @@ module.exports = function(RED) {
                 node.warn(err.description, err);
                 node.status({fill:"yellow",shape:"ring",text:"retrying..."});
                 setTimeout(function () {
-                  doConnect(credentials, tryNum + 1)
-                }, node.timeout)
+                  doConnect(credentials, tryNum + 1);
+                }, node.timeout);
               } else {
                 node.error(err.description, err);
                 node.status({fill:"red",shape:"dot",text:err.description});
@@ -124,8 +124,8 @@ module.exports = function(RED) {
                   handleMessage(cloudant, node, msg);
               });
             }
-          })
-        };
+          });
+        }
 
         function createDatabase(cloudant, node) {
           cloudant.db.list(function(err, all_dbs) {
@@ -237,7 +237,7 @@ module.exports = function(RED) {
             callback(err, body);
           });
         }
-    };
+    }
     RED.nodes.registerType("cloudantplus out", CloudantOutNode);
 
     function CloudantInNode(n) {
@@ -271,7 +271,9 @@ module.exports = function(RED) {
               if (tryNum <= node.retries) {
                 node.warn(err.description, err);
                 node.status({fill:"yellow",shape:"ring",text:"retrying..."});
-                setTimeout(function() { doConnect(credentials, tryNum + 1) }, node.timeout)
+                setTimeout(function () {
+                  doConnect(credentials, tryNum + 1);
+                }, node.timeout);
               } else {
                 node.error(err.description, err);
                 node.status({fill:"red",shape:"dot",text:err.description});
@@ -279,12 +281,14 @@ module.exports = function(RED) {
             } else {
               node.status({fill:"green",shape:"dot",text:"connected"});
               node.on("input", function(msg) {
-                if (err) { return node.error(err.description, err); }
+                if (err) {
+                    return node.error(err.description, err);
+                }
                 handleMsg(cloudant, node, msg);
               });
             }
-          })
-        };
+          });
+        }
 
 
         function handleMsg(cloudant, node, msg) {
@@ -320,7 +324,7 @@ module.exports = function(RED) {
                   sendDocumentOnPayload(err, body, msg);
               });
           }
-        };
+        }
 
         function getDocumentId(payload) {
             if (typeof payload === "object") {
