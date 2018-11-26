@@ -1,5 +1,5 @@
 /**
- * Copyright 2014,2016 IBM Corp.
+ * Copyright 2014,2018 IBM Corp.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ module.exports = function(RED) {
     var url         = require('url');
     var querystring = require('querystring');
     var cfEnv       = require("cfenv");
-    var Cloudant    = require("cloudant");
+    var Cloudant    = require('@cloudant/cloudant');
 
     var MAX_ATTEMPTS = 3;
 
@@ -92,7 +92,7 @@ module.exports = function(RED) {
             key:      node.cloudantConfig.username,
             password: node.cloudantConfig.password,
             url: node.cloudantConfig.url
-        };
+       };
 
 
         node.status({fill:"grey",shape:"ring",text:"disconnected"});
@@ -120,7 +120,7 @@ module.exports = function(RED) {
                       return;
                   }
 
-                  delete msg._msgid;
+                  //delete msg._msgid;
                   handleMessage(cloudant, node, msg);
               });
             }
@@ -151,37 +151,116 @@ module.exports = function(RED) {
 
         function handleMessage(cloudant, node, msg) {
           if (node.operation === "insert") {
-            var msg  = node.payonly ? msg.payload : msg;
+            var data  = Object.assign({}, node.payonly ? msg.payload : msg);
+            delete data._msgid;
             var root = node.payonly ? "payload" : "msg";
-            var doc  = parseMessage(msg, root);
+            var doc  = parseMessage(data, root);
 
-            insertDocument(cloudant, node, doc, MAX_ATTEMPTS, function(err, body) {
-              if (err) {
+            if (Object.prototype.toString.call( doc ) === '[object Array]') {
+              bulkDocument(cloudant, node, doc, MAX_ATTEMPTS, function(err, body) {
+                if (err) {
+                    console.trace();
+                    console.log(node.error.toString());
+                    node.error("Failed to insert document: " + err.description, data);
+                };
+                node.status({fill:"green",shape:"dot",text:"connected"});
+                sendDocumentOnPayload(err, body, msg, node);
+              });
+            } else {
+              insertDocument(cloudant, node, doc, MAX_ATTEMPTS, function(err, body) {
+                if (err) {
                   console.trace();
                   console.log(node.error.toString());
-                  node.error("Failed to insert document: " + err.description, msg);
-              };
-              node.status({fill:"green",shape:"dot",text:"connected"});
-            });
+                  node.error("Failed to insert document: " + err.description, data);
+                };
+                node.status({fill:"green",shape:"dot",text:"connected"});
+                sendDocumentOnPayload(err, body, msg, node);
+              });
+            }
           }
           else if (node.operation === "delete") {
             var doc = parseMessage(msg.payload || msg, "");
+            delete doc._msgid;
 
-            if ("_rev" in doc && "_id" in doc) {
-              var db = cloudant.use(node.database);
-              db.destroy(doc._id, doc._rev, function(err, body) {
+            if (Object.prototype.toString.call( doc ) === '[object Array]') {
+              doc.forEach((element, index, obj) => {
+                    if ("_rev" in element && "_id" in element) {
+                       element._deleted = true;
+                    }else{
+                      obj.splice(index, 1);
+                      var err = new Error("_id and _rev are required to delete a document");
+                      node.error(err.message, data);
+                    }
+                   });
+                   bulkDocument(cloudant, node, doc, MAX_ATTEMPTS, function(err, body) {
                 if (err) {
-                  node.error("Failed to delete document: " + err.description, msg);
+                    console.trace();
+                    console.log(node.error.toString());
+                    node.error("Failed to delete document: " + err.description, data);
                 };
                 node.status({fill:"green",shape:"dot",text:"connected"});
+                sendDocumentOnPayload(err, body, msg, node);
               });
             } else {
-              var err = new Error("_id and _rev are required to delete a document");
-              node.error(err.message, msg);
+              if ("_rev" in doc && "_id" in doc) {
+                var db = cloudant.use(node.database);
+                db.destroy(doc._id, doc._rev, function(err, body) {
+                  if (err) {
+                    node.error("Failed to delete document: " + err.description, data);
+                  };
+                  node.status({fill:"green",shape:"dot",text:"connected"});
+                  sendDocumentOnPayload(err, body, msg, node);
+                });
+              } else {
+                var err = new Error("_id and _rev are required to delete a document");
+                node.error(err.message, data);
+              }
             }
           };
 
         }
+
+        function sendDocumentOnPayload(err, body, msg, node) {
+          if (!err) {
+              node.status({fill:"green",shape:"dot",text:"connected"});
+              msg.cloudant = body;
+
+              if ("rows" in body) {
+                  msg.payload = body.rows.
+                      map(function(el) {
+                          if (el.doc) {
+                            if (el.doc._id.indexOf("_design/") < 0) {
+                                return el.doc;
+                            }
+                          } else {
+                            return el;
+                          }
+
+                      }).
+                      filter(function(el) {
+                          return el !== null && el !== undefined;
+                      });
+              } else {
+                  msg.payload = body;
+              };
+          }
+          else {
+              msg.payload = null;
+
+              if (err.description === "missing") {
+                node.warn(
+                    "Document '" + node.inputId +
+                    "' not found in database '" + node.database + "'.",
+                    err
+                );
+                node.status({fill:"green",shape:"dot",text:"connected"});
+              } else {
+                  node.error(err.description, err);
+              }
+          }
+
+          node.send(msg);
+      }
 
         function parseMessage(msg, root) {
           if (typeof msg !== "object") {
@@ -203,13 +282,27 @@ module.exports = function(RED) {
         // fix field values that start with _
         // https://wiki.apache.org/couchdb/HTTP_Document_API#Special_Fields
         function cleanMessage(msg) {
-          for (var key in msg) {
-            if (msg.hasOwnProperty(key) && !isFieldNameValid(key)) {
-              // remove _ from the start of the field name
-              var newKey = key.substring(1, msg.length);
-              msg[newKey] = msg[key];
-              delete msg[key];
-              node.warn("Property '" + key + "' renamed to '" + newKey + "'.");
+          if (Object.prototype.toString.call( msg ) === '[object Array]') {
+            for (var i in msg) {
+              for (var key in msg[i]) {
+                if (msg[i].hasOwnProperty(key) && !isFieldNameValid(key)) {
+                  // remove _ from the start of the field name
+                  var newKey = key.substring(1, msg[i].length);
+                  msg[i][newKey] = msg[i][key];
+                  delete msg[i][key];
+                  node.warn("Property '" + key + "' renamed to '" + newKey + "'.");
+                }
+              }
+            }
+          } else {
+            for (var key in msg) {
+              if (msg.hasOwnProperty(key) && !isFieldNameValid(key)) {
+                // remove _ from the start of the field name
+                var newKey = key.substring(1, msg.length);
+                msg[newKey] = msg[key];
+                delete msg[key];
+                node.warn("Property '" + key + "' renamed to '" + newKey + "'.");
+              }
             }
           }
           return msg;
@@ -234,6 +327,23 @@ module.exports = function(RED) {
               // status_code 404 means the database was not found
               return cloudant.db.create(db.config.db, function() {
                   insertDocument(cloudant, node, doc, attempts-1, callback);
+              });
+            }
+            callback(err, body);
+          });
+        }
+
+         // Bulk operation on documents +doc+ in a database +db+ that migh not exist
+        // beforehand. If the database doesn't exist, it will create one
+        // with the name specified in +db+. To prevent loops, it only tries
+        // +attempts+ number of times.
+        function bulkDocument(cloudant, node, doc, attempts, callback) {
+          var db = cloudant.use(node.database);
+          db.bulk( { docs: doc }, function(err, body) {
+            if (err && err.status_code === 404 && attempts > 0) {
+              // status_code 404 means the database was not found
+              return cloudant.db.create(db.config.db, function() {
+                bulkDocument(cloudant, node, { docs: doc }, attempts-1, callback);
               });
             }
             callback(err, body);
@@ -301,11 +411,17 @@ module.exports = function(RED) {
             });
           }
           else if (node.search === "_idx_") {
+            consle.log(options);
             options.query = options.query || options.q || formatSearchQuery(msg.payload);
             options.include_docs = options.include_docs || true;
             options.limit = options.limit || 200;
 
             db.search(node.design, node.index, options, function(err, body) {
+                sendDocumentOnPayload(err, body, msg, node);
+            });
+          }
+          else if (node.search === "_query_") {
+            db.find(options, function(err, body) {
                 sendDocumentOnPayload(err, body, msg, node);
             });
           }

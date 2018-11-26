@@ -1,5 +1,5 @@
 <!--
-  Copyright 2014,2016 IBM Corp.
+  Copyright 2014,2018 IBM Corp.
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -114,6 +114,7 @@
         <label for="node-input-search"><i class="fa fa-search"></i> Search by</label>
         <select id="node-input-search" style="width:68%;">
             <option value="_id_">_id</option>
+            <option value="_query_">query</option>
             <option value="_idx_">search index</option>
             <option value="_view_">view</option>
             <option value="_all_">all documents</option>
@@ -144,7 +145,7 @@
             operation: { value:"insert" }
         },
         inputs: 1,
-        outputs: 0,
+        outputs: 1,
         icon: "cloudant.png",
         align: "right",
         label: label,
@@ -244,6 +245,7 @@
 <script type="text/x-red" data-help-name="cloudantplus out">
    <p>
        A simple Cloudant output node. Stores <b>msg</b> in a chosen database.
+       If <b>msg</b> is an array, all elements will be processed using the bulk operations API.
     </p>
    <p>
        Cloudant generates a random id for the <code>_id</code> property if one
@@ -262,7 +264,7 @@
         It is also possible to <b>delete</b> documents from the database by
         providing values for <code>_id</code> and <code>_rev</code> and selecting
         the <b>remove</b> option for the node. You can pass these values in the
-        <code>msg</code> object itself or as an object in the
+        <code>msg</code> object itself or as an object or array of objects in the
         <code>msg.payload</code>.
     </p>
     <p>
@@ -286,15 +288,22 @@
         A node for searching documents in a Cloudant database.
     </p>
     <p>
-        Searching for documents can be done in three modes: directly by using the
-        document&apos;s <b>_id</b>, by using an existing <a
-        href="https://cloudant.com/for-developers/search/" target="_blank">Search
-        Index</a> or retrieving <b>all documents</b> stored in your database.
+        Searching for documents can be done in five modes: directly by using the
+        document&apos;s <b>_id</b>, by using a <a href="https://console.bluemix.net/docs/services/Cloudant/api/cloudant_query.html#finding-documents-using-an-index"  target="_blank"
+        declarative JSON query</a>, by using an existing <a
+        href="https://console.bluemix.net/docs/services/Cloudant/api/search.html#search" target="_blank">Search
+        Index</a>, by using a <a href="https://console.bluemix.net/docs/services/Cloudant/api/using_views.html#using-views" target="_blank">
+        view</a> or retrieving <b>all documents</b> stored in your database.
     </p>
     <p>
         When querying using the <b>_id</b> option, the value for the document&apos;s
         <code>_id</code> should be passed in the <code>msg.payload</code> as a
         string.
+    </p>
+    <p>
+        When querying using the <b>query</b> option, the JSON object with 
+        <a href="https://console.bluemix.net/docs/services/Cloudant/api/cloudant_query.html#finding-documents-using-an-index" target="_blank">
+        declarative query syntax</a> should be passed in the <code>msg.payload</code>.
     </p>
     <p>
         To use an existing <b>Search Index</b> stored on the desired database,
