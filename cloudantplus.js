@@ -411,7 +411,7 @@ module.exports = function(RED) {
             });
           }
           else if (node.search === "_idx_") {
-            consle.log(options);
+            console.log(options);
             options.query = options.query || options.q || formatSearchQuery(msg.payload);
             options.include_docs = options.include_docs || true;
             options.limit = options.limit || 200;
