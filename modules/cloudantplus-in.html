@@ -1,0 +1,293 @@
+<!--
+  Copyright 2014,2018 IBM Corp.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+
+<script type="text/html" data-template-name="cloudantplus in">
+  <div class="form-row">
+    <label for="node-input-service"
+      ><i class="fa fa-folder-close"></i> Service</label
+    >
+    <select id="node-input-service" style="width:68%;">
+      <!-- <option value="" disabled></option> -->
+      <option value="_ext_">External cloudant or couchdb service</option>
+    </select>
+  </div>
+  <div class="form-row hide" id="node-input-external-details">
+    <label for="node-input-cloudant"
+      ><i class="fa fa-bookmark"></i> Server</label
+    >
+    <input type="text" id="node-input-cloudant" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-database"
+      ><i class="fa fa-briefcase"></i> Database</label
+    >
+    <input
+      type="text"
+      id="node-input-database"
+      placeholder="database"
+      style="width:65%;"
+    />
+  </div>
+  <div class="form-row">
+    <label for="node-input-search"
+      ><i class="fa fa-search"></i> Search by</label
+    >
+    <select id="node-input-search" style="width:68%;">
+      <option value="_id_">_id</option>
+      <option value="_query_">query</option>
+      <option value="_idx_">search index</option>
+      <option value="_view_">view</option>
+      <option value="_all_">all documents</option>
+    </select>
+  </div>
+  <div id="node-search-index-form" class="form-row">
+    <label>&nbsp;</label>
+    <input
+      type="text"
+      id="node-input-design"
+      style="width:30%"
+      placeholder="design document"
+    />
+    /
+    <input
+      type="text"
+      id="node-input-index"
+      style="width:30%"
+      placeholder="index/view name"
+    />
+  </div>
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input
+      type="text"
+      id="node-input-name"
+      placeholder="Name"
+      style="width:65%;"
+    />
+  </div>
+</script>
+
+<script type="text/javascript">
+  RED.nodes.registerType("cloudantplus in", {
+    category: "storage-input",
+    color: "rgb(114, 199, 231)",
+    defaults: {
+      name: { value: "" },
+      cloudant: { type: "cloudantplus", validate: validateServer },
+      database: { value: "", required: false, validate: validateDatabase },
+      service: { value: "", required: true },
+      search: { value: "_id_", required: true },
+      design: { value: "" },
+      index: { value: "" },
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: "cloudant.png",
+    label: label,
+    labelStyle: function () {
+      return this.name ? "node_label_italic" : "";
+    },
+    oneditprepare: oneditprepare,
+  });
+
+  function oneditprepare() {
+    var node = this;
+    var serviceSelect = $("#node-input-service");
+    var searchBySelect = $("#node-input-search");
+    var searchForm = $("#node-search-index-form");
+
+    $.getJSON("cloudant/vcap/", function (data) {
+      var last = serviceSelect.children().last();
+      var opts = [];
+
+      for (var i = 0; i < data.length; i++) {
+        var selected = node.service == data[i].name;
+        opts.push(
+          '<option value="' +
+            data[i].name +
+            '"' +
+            (selected ? " selected" : "") +
+            ">" +
+            data[i].name +
+            "</option>"
+        );
+      }
+
+      if (opts.length == 0) {
+        node.service = "_ext_";
+        serviceSelect
+          .find("option")
+          .filter(function () {
+            return $(this).val() == node.service;
+          })
+          .attr("selected", true);
+      } else {
+        last.before(opts.join(""));
+      }
+
+      serviceSelect.change();
+    });
+
+    serviceSelect.change(function () {
+      var service = serviceSelect.val();
+      if (service == "_ext_") {
+        $("#node-input-external-details").show();
+      } else {
+        $("#node-input-external-details").hide();
+      }
+    });
+
+    searchBySelect.change(function () {
+      var searchBy = searchBySelect.val();
+
+      if (searchBy === "_idx_" || searchBy === "_view_") {
+        node._def.defaults.design.required = true;
+        node._def.defaults.index.required = true;
+        searchForm.show();
+      } else {
+        node._def.defaults.design.required = false;
+        node._def.defaults.index.required = false;
+        searchForm.hide();
+      }
+    });
+  }
+
+  function label() {
+    return this.name || this.database || "cloudantplus in";
+  }
+
+  function validateServer(v) {
+    if (v) {
+      return this.service != "_ext_" || v != "_ADD_";
+    }
+    return true;
+  }
+
+  // https://wiki.apache.org/couchdb/HTTP_database_API#Naming_and_Addressing
+  function validateDatabase(v) {
+    if (v) {
+      return v.indexOf("_") !== 0 && v.search(/[A-Z\s\\/]/g) < 0;
+    }
+    return true;
+  }
+</script>
+
+<script type="text/html" data-help-name="cloudantplus in">
+    <p>
+         A node for searching, finding and retriving documents in a Cloudant or CouchDB database.
+     </p>
+     <h3>Search Options</h3>
+        <ol>
+           <li>direct, use the document&apos;s <b>_id</b></li>
+           <li>use a <a href="https://console.bluemix.net/docs/services/Cloudant/api/cloudant_query.html#finding-documents-using-an-index"  target="_blank"> declarative JSON query</a></li>
+           <li>use an existing <a
+            href="https://console.bluemix.net/docs/services/Cloudant/api/search.html#search" target="_blank">Search Index</a></li>
+           <li>use a <a href="https://console.bluemix.net/docs/services/Cloudant/api/using_views.html#using-views" target="_blank">
+            view</a></li>
+           <li>retrieve <b>all documents</b></li>
+        </ol>
+  <h3>Inputs</h3>
+  <dl class="message-properties">
+    <dt>payload
+      <span class="property-type">string | object</span>
+    </dt>
+    <dd>
+     for direct access to a document, set the payload to the value of the <code>_id</code>. For queries, payload can hold your query
+    </dd>
+    <dt>msg.q | msg.query
+      <span class="property-type">object</span>
+    </dt>
+    <dd>
+     Contains the query to be sent to Cloudant. Has priority over <code>payload</code>
+    </dd>
+    <dt>msg.database
+      <span class="property-type">string</span>
+    </dt>
+    <dd>
+     Overwrites the configued database in the node to be queried
+    </dd>
+    <dt>msg.operation
+      <span class="property-type">string</span>
+    </dt>
+    <dd>
+     Overwrites the configued operation, supported values are <code>_id_</code>, <code>_query_</code>, <code>_idx_</code>, <code>_view_</code> and <code>_all_</code>
+    </dd>
+    <dt>msg.options
+      <span class="property-type">object</span>
+    </dt>
+    <dd>
+     When provided, contains all query options as JSON object, like <code>limit</code> or <code>include_docs</code>
+    </dd>
+  </dl>
+
+
+  <h3>Details</h3>
+     <p>
+         When querying using the <b>_id</b> option, the value for the document&apos;s
+         <code>_id</code> should be passed in the <code>msg.payload</code> as a
+         string.
+     </p>
+     <p>
+         When querying using the <b>query</b> option, the JSON object with
+         <a href="https://console.bluemix.net/docs/services/Cloudant/api/cloudant_query.html#finding-documents-using-an-index" target="_blank">
+         declarative query syntax</a> should be passed in the <code>msg.payload</code>.
+     </p>
+     <p>
+         To use an existing <b>Search Index</b> stored on the desired database,
+         the query argument should be passed on the <code>msg.payload</code> as a
+         string following the <code>indexName:value</code> pattern. Keep in mind
+         that <i>the index must be created beforehand in the database.</i> and
+         referenced here by its <code>design document/index name</code>.
+     </p>
+     <p>
+         When querying using a <b>Search Index</b> you can pass the search
+         parameters as an object in <code>msg.payload</code>.
+     </p>
+     <p>
+         For example, you can pass an object like this:
+     <p>
+         <code>{ query: "abc*", limit: 100 }</code>
+     </p>
+     <p>
+         to change the value of <code>limit</code>. You can find more information
+         about <b>Search Index</b> parameters in the <a
+         href="https://docs.cloudant.com/api.html?http#queries" target="_blank">
+         official Cloudant documentation</a>.
+     </p>
+     <p>
+       When querying using a <b>View</b> you can pass the view parameters as an
+       object in <code>msg.payload</code>. This object should contain key/value
+       pairs as defined in the Query string section in the
+       <a href="https://console.bluemix.net/docs/services/Cloudant/api/using_views.html#using-views">
+       Cloudant documentation</a>
+     </p>
+     <p>
+         The last method to retrieve documents is to simply get all of them by
+         selecting the option <b>all documents</b>.
+     </p>
+     <p>
+         The <b>database name</b> must follow these rules:
+         <ul>
+             <li>No spaces</li>
+             <li>All letters in lower case</li>
+             <li>The first character can&apos;t be <code>_</code></li>
+         </ul>
+     </p>
+     <h3>References</h3>
+     <ul>
+       <li>TODO</li>
+     </ul>
+</script>
