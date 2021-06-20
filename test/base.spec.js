@@ -16,8 +16,12 @@
 
 // Test functions for cloudantbase functions, requires a running local CouchDB
 
-import * as base from "../modules/shared/cloudantbase.js";
-import { expect } from "chai";
+const base = require("../modules/shared/cloudantbase.js");
+const chai = require("chai");
+const chaiAsPromised = require("chai-as-promised");
+
+const { expect } = chai;
+chai.use(chaiAsPromised);
 
 describe("Interacting with Cloudant", () => {
   context("basic auth", () => {

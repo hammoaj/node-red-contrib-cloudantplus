@@ -27,10 +27,10 @@ const MAX_ATTEMPTS = 3;
 // Extracts options from msg, tries msg.options first.
 // falls back to payload for backward compatibility
 const getOptions = (msg) => {
-  if (typeof msg.options === "object") {
+  if (typeof msg?.options === "object") {
     return msg.options;
   }
-  return typeof msg.payload === "object" ? msg.payload : {};
+  return typeof msg?.payload === "object" ? msg.payload : {};
 };
 
 // Check if a field name is valid, either not starts with _
@@ -93,14 +93,18 @@ const parseMessage = (msg, root) => {
 // https://wiki.apache.org/couchdb/HTTP_database_API#Naming_and_Addressing
 const cleanDatabaseName = (database, warn) => {
   var newDatabase = database;
-
   // caps are not allowed
   newDatabase = newDatabase.toLowerCase();
-  // remove trailing underscore
+  // remove leading/trailing underscore
+  // TODO: is that correct?
   newDatabase = newDatabase.replace(/^_/, "");
+  newDatabase = newDatabase.replace(/_$/, "");
   // remove spaces and slashed
   newDatabase = newDatabase.replace(/[\s\\/]+/g, "-");
-
+  // Remove other specila characters
+  newDatabase = newDatabase.replace(/[^0-9a-z_-]+/g, "");
+  // Remove duplicate slashes
+  newDatabase = newDatabase.replace(/--+/g, "-");
   if (newDatabase !== database) {
     warn("Database renamed  as '" + newDatabase + "'.");
   }
@@ -109,21 +113,25 @@ const cleanDatabaseName = (database, warn) => {
 };
 
 // Handling of query parameters
-const formatSearchQuery = (query) => {
-  if (typeof query === "object") {
+const formatSearchQuery = (source) => {
+  if (typeof source === "object") {
     // useful when passing the query on HTTP params
-    if ("q" in query) {
-      return query.q;
+    if ("q" in source) {
+      return source.q;
+    }
+
+    if ("query" in source) {
+      return source.query;
     }
 
     var queryString = "";
-    for (var key in query) {
-      queryString += key + ":" + query[key] + " ";
+    for (var key in source) {
+      queryString += key + ":" + source[key] + " ";
     }
 
     return queryString.trim();
   }
-  return query;
+  return source;
 };
 
 // Get the id, fallback to _id if id not available
@@ -152,7 +160,7 @@ const status = {
   connected: (node, msg) =>
     node.status({ fill: "green", shape: "dot", text: msg || "connected" }),
   transmitting: (node, msg) =>
-    node.status({ fill: "green", shape: "dot", text: msg || "transmitting" }),
+    node.status({ fill: "green", shape: "ring", text: msg || "transmitting" }),
   retry: (node, msg) =>
     node.status({ fill: "yellow", shape: "ring", text: msg || "retrying..." }),
   error: (node, msg) =>
@@ -164,6 +172,7 @@ module.exports = {
   DEFAULT_RETRIES,
   DEFAULT_TIMEOUT,
   MAX_ATTEMPTS,
+  allowedWords,
   cleanDatabaseName,
   formatSearchQuery,
   getBooleanIfUndefined,

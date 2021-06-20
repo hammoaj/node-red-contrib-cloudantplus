@@ -16,8 +16,12 @@
 
 // Test functions for cloudantplus functions, using NodeRED
 
-import * as plus from "../modules/cloudantplus.js";
-import { expect } from "chai";
+const plus = require("../modules/cloudantplus.js");
+const chai = require("chai");
+const chaiAsPromised = require("chai-as-promised");
+
+const { expect } = chai;
+chai.use(chaiAsPromised);
 
 describe("Interacting with Cloudant", () => {
   context("Dummy function", () => {
