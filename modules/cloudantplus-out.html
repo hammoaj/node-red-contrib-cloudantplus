@@ -1,0 +1,267 @@
+<!--
+  Copyright 2014,2018 IBM Corp.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+
+<script type="text/html" data-template-name="cloudantplus out">
+  <div class="form-row">
+      <label for="node-input-service"><i class="fa fa-folder-close"></i> Service</label>
+      <select id="node-input-service" style="width:68%;">
+          <!-- <option value="" disabled></option> -->
+          <option value="_ext_"> External cloudant or couchdb service</option>
+      </select>
+  </div>
+  <div class="form-row hide" id="node-input-external-details">
+      <label for="node-input-cloudant"><i class="fa fa-bookmark"></i> Server</label>
+      <input type="text" id="node-input-cloudant">
+  </div>
+  <div class="form-row">
+      <label for="node-input-database"><i class="fa fa-briefcase"></i> Database</label>
+      <input type="text" id="node-input-database" placeholder="database" style="width:65%;">
+  </div>
+  </div>
+      <div class="form-row">
+      <label for="node-input-operation"><i class="fa fa-wrench"></i> Operation</label>
+      <select type="text" id="node-input-operation" style="width:68%;">
+          <option value="insert">insert / update</option>
+          <option value="delete">remove</option>
+      </select>
+  </div>
+  <div class="form-row node-input-payonly">
+      <label>&nbsp;</label>
+      <input type="checkbox" id="node-input-payonly" placeholder="Only"
+             style="display: inline-block; width: auto; vertical-align: top;">
+      <label for="node-input-payonly" style="width:65%;">Only store msg.payload object?</label>
+  </div>
+  <div class="form-row">
+      <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+      <input type="text" id="node-input-name" placeholder="Name" style="width:65%;">
+  </div>
+  <script>
+      $("#node-input-operation").change(function() {
+          var id = $("#node-input-operation option:selected").val();
+          if (id == "delete") $(".node-input-payonly").hide();
+          else $(".node-input-payonly").show();
+      });
+</script>
+
+<script type="text/javascript">
+  RED.nodes.registerType("cloudantplus out", {
+    category: "storage-output",
+    color: "rgb(114, 199, 231)",
+    defaults: {
+      name: { value: "" },
+      cloudant: { type: "cloudantplus", validate: validateServer },
+      database: { value: "", required: false, validate: validateDatabase },
+      service: { value: "", required: true },
+      payonly: { value: true },
+      operation: { value: "insert" },
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: "cloudant.png",
+    align: "right",
+    label: label,
+    labelStyle: function () {
+      return this.name ? "node_label_italic" : "";
+    },
+    oneditprepare: oneditprepare,
+  });
+
+  function oneditprepare() {
+    var node = this;
+    var serviceSelect = $("#node-input-service");
+    var searchBySelect = $("#node-input-search");
+    var searchForm = $("#node-search-index-form");
+
+    $.getJSON("cloudant/vcap/", function (data) {
+      var last = serviceSelect.children().last();
+      var opts = [];
+
+      for (var i = 0; i < data.length; i++) {
+        var selected = node.service == data[i].name;
+        opts.push(
+          '<option value="' +
+            data[i].name +
+            '"' +
+            (selected ? " selected" : "") +
+            ">" +
+            data[i].name +
+            "</option>"
+        );
+      }
+
+      if (opts.length == 0) {
+        node.service = "_ext_";
+        serviceSelect
+          .find("option")
+          .filter(function () {
+            return $(this).val() == node.service;
+          })
+          .attr("selected", true);
+      } else {
+        last.before(opts.join(""));
+      }
+
+      serviceSelect.change();
+    });
+
+    serviceSelect.change(function () {
+      var service = serviceSelect.val();
+      if (service == "_ext_") {
+        $("#node-input-external-details").show();
+      } else {
+        $("#node-input-external-details").hide();
+      }
+    });
+
+    searchBySelect.change(function () {
+      var searchBy = searchBySelect.val();
+
+      if (searchBy === "_idx_" || searchBy === "_view_") {
+        node._def.defaults.design.required = true;
+        node._def.defaults.index.required = true;
+        searchForm.show();
+      } else {
+        node._def.defaults.design.required = false;
+        node._def.defaults.index.required = false;
+        searchForm.hide();
+      }
+    });
+  }
+
+  function label() {
+    return this.name || this.database || "cloudantplus out";
+  }
+
+  function validateServer(v) {
+    return this.service != "_ext_" || v != "_ADD_";
+  }
+
+  // https://wiki.apache.org/couchdb/HTTP_database_API#Naming_and_Addressing
+  function validateDatabase(v) {
+    if (v) {
+      return v.indexOf("_") !== 0 && v.search(/[A-Z\s\\/]/g) < 0;
+    }
+    return true;
+  }
+</script>
+
+<script type="text/html" data-help-name="cloudantplus out">
+    <p>
+        A simple Cloudant output node, that supports <code>insert</code>, <code>update</code> and delete operations. It can act on the <b>msg</b> or <b>payload</b> object and process for a chosen database.
+        If <b>msg</b> or <b>payload</b> is an array, all elements will be processed using the bulk operations API.
+     </p>
+
+     <h3>Inputs</h3>
+     <dl class="message-properties">
+      <dt>
+        msg | payload
+        <span class="property-type">JSON</span>
+      </dt>
+      <dd>
+        Data to be processed for your database operation. Cloudant generates a random id for the <code>_id</code> property if one is not specified and a new document will be <b>inserted</b> each time.
+      </dd>
+      <dt>
+        id | _id
+        <span class="property-type">string</span>
+      </dt>
+      <dd>
+        Required Id for updates and deletions. Optional for inserts, Cloudant will generate a random _id then
+      </dd>
+      <dt>
+        _ref
+        <span class="property-type">string</span>
+      </dt>
+      <dd>
+        Required for update and delete operations
+      </dd>
+      <dt>
+        msg.database
+        <span class="property-type">string</span>
+      </dt>
+      <dd>
+        When the property <code>msg.database</code> is specified, documents get acted upon there, overwriting the configured database name
+      </dd>
+      <dt>msg.operation
+        <span class="property-type">string</span>
+      </dt>
+      <dd>
+       Overwrites the configued operation, supported values are <code>insert</code> and <code>delete</code>
+     </dl>
+
+     <h3>Outputs</h3>
+     <p>All outputs can be found in the <code>msg.payload</code> object</p>
+     <dl class="message-properties">
+      <dt>
+        status
+        <span class="property-type">http code</span>
+      </dt>
+      <dd>HTTP response code, 2xx indicates success</dd>
+      <dt>
+        statusText
+        <span class="property-type">string</span>
+      </dt>
+      <dd>Human readable status</dd>
+      <dt>
+        headers
+        <span class="property-type">object</span>
+      </dt>
+      <dd>key/value pairs of the Cloudant interaction</dd>
+    <dt>
+      result
+      <span class="property-type">object</span>
+    </dt>
+    <dd>Status mit <code>ok</code>, <code>id</code> and <code>rev</code> values</dd>
+  </dl>
+  <h3>Details</h3>
+    <p>
+        Cloudant generates a random id for the <code>_id</code> property if one
+        is not specified and a new document will be <b>inserted</b> each time.
+        You can <b>insert</b> only the <code>msg.payload</code> by checking the
+        checkbox in the configuration window.
+    </p>
+    <p>
+        If you want to <b>update</b> an existing document you must specify the
+        latest values for <code>_id</code> and <code>_rev</code> in your object.
+        If they don&apos;t match the current values stored in the database you will
+        receive a <b>conflict error</b> message, so make sure you are using the
+        most updated information for the document.
+     </p>
+     <p>
+         It is also possible to <b>delete</b> documents from the database by
+         providing values for <code>_id</code> and <code>_rev</code> and selecting
+         the <b>remove</b> option for the node. You can pass these values in the
+         <code>msg</code> object itself or as an object or array of objects in the
+         <code>msg.payload</code>.
+     </p>
+     <p>
+         The <b>database name</b> must follow these rules:
+         <ul>
+             <li>No spaces</li>
+             <li>All letters in lower case</li>
+             <li>The first character can&apos;t be <code>_</code></li>
+         </ul>
+     </p>
+     <p>
+         Your document should avoid having top-level fields that start with
+         <code>_</code>, with exceptions for <code>_id</code>, <code>_rev</code>
+         and other <a href="https://docs.couchdb.org/en/stable/api/document/index.html"> CouchDB reserved words</a>.
+     </p>
+     <h3>References</h3>
+  <ul>
+    <li><a href="https://docs.couchdb.org/en/stable/">CouchDB</a> documentation</li>
+    <li><a href="https://docs.couchdb.org/en/stable/api/database/bulk-api.html#db-bulk-docs">Bulk API</a></li>
+  </ul>
+</script>

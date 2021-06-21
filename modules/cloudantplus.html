@@ -1,0 +1,184 @@
+<!--
+  Copyright 2014,2018 IBM Corp.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+
+<script type="text/html" data-template-name="cloudantplus">
+  <div class="form-row">
+    <label for="node-config-input-host"
+      ><i class="fa fa-bookmark"></i> Host</label
+    >
+    <input
+      class="input-append-left"
+      type="text"
+      id="node-config-input-host"
+      placeholder="https://your-server.com"
+    />
+  </div>
+  <div class="form-row">
+    <label>&nbsp;</label>
+    <input
+      type="checkbox"
+      id="node-config-input-useapikey"
+      style="display: inline-block; width: auto; vertical-align: top;"
+    />
+    <label for="node-config-input-useapikey" style="width:65%;"
+      >Authenticate with API Key?</label
+    >
+  </div>
+  <div class="form-row" id="row-input-username">
+    <label for="node-config-input-username"
+      ><i class="fa fa-user"></i> Username</label
+    >
+    <input type="text" id="node-config-input-username" />
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-pass"
+      ><i class="fa fa-lock"></i>
+      <span id="node-config-input-pass-label">Password</span>
+    </label>
+    <input type="password" id="node-config-input-pass" />
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-config-input-name" placeholder="Name" />
+  </div>
+</script>
+
+<script type="text/javascript">
+  RED.nodes.registerType("cloudantplus", {
+    category: "config",
+    color: "rgb(114, 199, 231)",
+    defaults: {
+      host: { value: "", required: true },
+      name: { value: "" },
+      useapikey: { value: false },
+    },
+    credentials: {
+      username: { type: "text" },
+      pass: { type: "password" },
+    },
+    label: function () {
+      return this.name || this.host;
+    },
+    oneditprepare: oneditprepare,
+  });
+
+  function oneditprepare() {
+    var node = this;
+    var useApiKey = $("#node-config-input-useapikey");
+    var userRow = $("#row-input-username");
+    var passwdLabel = $("#node-config-input-pass-label");
+
+    useApiKey.change();
+
+    useApiKey.change(function () {
+      if (this.checked) {
+        userRow.hide();
+        passwdLabel.text("API Key");
+      } else {
+        userRow.show();
+        passwdLabel.text("Password");
+      }
+    });
+  }
+
+  function label() {
+    return this.name || this.database || "cloudantplus config";
+  }
+</script>
+
+<script type="text/html" data-help-name="cloudantplus">
+  <p>Cloudant/CouchDB configuration and settings</p>
+  <p>
+    The configuration node needs to be filled in when settings are not auto
+    discovered by the <code>cfenv</code> module that looks for the
+    <code>VCAP_APPLICATION</code> and <code>VCAP_SERVICES</code>
+    environment variables that are e.g. in use in Cloud Foundry environments
+    like IBM Cloud (Bluemix)
+  </p>
+  <h3>Parameters</h3>
+  <dl class="message-properties">
+    <dt>
+      Host
+      <span class="property-type">URL</span>
+    </dt>
+    <dd>
+      URL of your server instance. Must not contain credentials or a database
+      name. For a local install use <code>http://localhost:5984</code>
+    </dd>
+    <dt>
+      Username
+      <span class="property-type">string</span>
+    </dt>
+    <dd>
+      Credential to login to your database, use together with
+      <code>Password</code>. Not needed when you provide an API Key
+    </dd>
+    <dt>
+      Password
+      <span class="property-type">password</span>
+    </dt>
+    <dd>
+      Used for authentication together with <code>Username</code>. Not needed
+      when you provide an API Key
+    </dd>
+    <dt>
+      API Key
+      <span class="property-type">password</span>
+    </dt>
+    <dd>
+      Used to login to Cloudant databases protected by IBM IAM on IBM Cloud
+    </dd>
+    <dt>
+      Name
+      <span class="property-type">string</span>
+    </dt>
+    <dd>Optional, when not provided, defaults to <code>Host</code></dd>
+  </dl>
+  <h3>Authentication</h3>
+  <p>
+    You need to specify either Username/Password <b>or</b> the API Key. The API
+    key is compatible to IBM's IAM. Username/Password will use Cloudant/CouchDB
+    Basic authentication. When an API Key is specified, it takes priority over
+    Username/Password
+  </p>
+  <h3>References</h3>
+  <ul>
+    <li><a href="https://www.cloudfoundry.org/">Cloud Foundry</a></li>
+    <li>
+      <a href="https://cloud.ibm.com/docs/account?topic=account-iamoverview"
+        >IBM Cloud Identity and Access Management</a
+      >
+      (IAM)
+    </li>
+    <li>
+      <a href="https://www.npmjs.com/package/cfenv">cfenv</a> (Library to read
+      Cloud Foundry configuration)
+    </li>
+    <li>
+      <a
+        href="https://cloud.ibm.com/docs/Cloudant?topic=Cloudant-managing-access-for-cloudant"
+        >Managing Cloudant access</a
+      >
+    </li>
+    <li>
+      <a href="https://github.com/IBM/cloudant-node-sdk">IBM Cloudant SDK</a>
+      for NodeJS
+    </li>
+    <li>
+      <a href="https://cloud.ibm.com/apidocs/cloudant">IBM Cloudant</a> API Docs
+    </li>
+  </ul>
+</script>
