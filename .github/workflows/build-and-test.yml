@@ -24,18 +24,18 @@ jobs:
         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
         node-version:
           - 12.x
-          - 14.x
-          - 16.x
+        #  - 14.x
+        #  - 16.x
 
     steps:
       - name: Create couchDB system database _global_changes
-        run: curl -X PUT http://admin:password@127.0.0.1:5984/_global_changes
+        run: curl -X PUT --user admin:password http://127.0.0.1:5984/_global_changes
 
       - name: Create couchDB system database _replicator
-        run: curl -X PUT http://admin:password@127.0.0.1:5984/_replicator
+        run: curl -X PUT --user admin:password http://127.0.0.1:5984/_replicator
 
       - name: Create couchDB system database _users
-        run: curl -X PUT http://admin:password@127.0.0.1:5984/_users
+        run: curl -X PUT --user admin:password http://127.0.0.1:5984/_users
 
       - name: Checkout sources
         uses: actions/checkout@v2
