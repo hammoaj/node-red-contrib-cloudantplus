@@ -23,9 +23,9 @@ jobs:
       matrix:
         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
         node-version:
-          - 12.x
-        #  - 14.x
-        #  - 16.x
+        # - 12.x
+          - 14.x
+          - 16.x
 
     steps:
       - name: Sleep to give couchDB a chance
