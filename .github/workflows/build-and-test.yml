@@ -29,19 +29,13 @@ jobs:
 
     steps:
       - name: Create couchDB system database _global_changes
-        uses: wei/curl@v1.1.1
-        with:
-          args: -X PUT http://admin:password@127.0.0.1:5984/_global_changes
+        run: curl -X PUT http://admin:password@127.0.0.1:5984/_global_changes
 
       - name: Create couchDB system database _replicator
-        uses: wei/curl@v1.1.1
-        with:
-          args: -X PUT http://admin:password@127.0.0.1:5984/_replicator
+        run: curl -X PUT http://admin:password@127.0.0.1:5984/_replicator
 
       - name: Create couchDB system database _users
-        uses: wei/curl@v1.1.1
-        with:
-          args: -X PUT http://admin:password@127.0.0.1:5984/_users
+        run: curl -X PUT http://admin:password@127.0.0.1:5984/_users
 
       - name: Checkout sources
         uses: actions/checkout@v2
