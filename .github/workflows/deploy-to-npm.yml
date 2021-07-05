@@ -1,0 +1,42 @@
+on:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Get current package version
+        id: package-version
+        uses: martinbeentjes/npm-get-version-action@v1.1.0
+
+      - name: publish to npm
+        id: publish
+        uses: JS-DevTools/npm-publish@v1
+        with:
+          token: ${{ sectrets.NPM_TOKEN }}
+          check-version: false
+          access: public
+          tag: ${{ steps.package-version.outputs.current-version}}
+          # Set dry-run to false to trigger actual deployment
+          dry-run: true
+
+      - if: steps.publish.outputs.type != 'none'
+        run: |
+          echo "Version changed: ${{ steps.publish.outputs.old-version }} => ${{ steps.publish.outputs.version }}"
+
+      # - if: steps.publish.outputs.type != 'none'
+      #   name: Let the twitter world know
+      #   uses: InfraWay/tweet-action@v1.0.1
+      #   with:
+      #     status: New version ${{ steps.publish.outputs.version }} of node-red-contrib-cloudantplus released \#NodeRED \#Cloudant
+      #     api_key: ${{ secrets.TWITTER_API_KEY }}
+      #     api_key_secret: ${{ secrets.TWITTER_API_KEY_SECRET }}
+      #     access_token: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+      #     access_token_secret: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
