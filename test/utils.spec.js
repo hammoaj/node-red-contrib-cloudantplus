@@ -120,6 +120,11 @@ describe("Testing the boolean function", () => {
     expect(utils.getBooleanIfUndefined(false, false)).to.equal(false);
     expect(utils.getBooleanIfUndefined(true, true)).to.equal(true);
     expect(utils.getBooleanIfUndefined(true, false)).to.equal(true);
+    expect(utils.getBooleanIfUndefined(undefined, true)).to.equal(true);
+    expect(utils.getBooleanIfUndefined(undefined, false)).to.equal(false);
+    expect(utils.getBooleanIfUndefined(null, true)).to.equal(true);
+    expect(utils.getBooleanIfUndefined(null, false)).to.equal(false);
+    expect(utils.getBooleanIfUndefined({}, false)).to.equal(false);
   });
 });
 
