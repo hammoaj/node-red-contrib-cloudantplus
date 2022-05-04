@@ -38,7 +38,7 @@ const getCloudantConfig = (RED, node) => {
   if (node.service === "_ext_") {
     const service = RED.nodes.getNode(node.cloudant);
     return {
-      url: service.host,
+      url: service.url,
       username: service.credentials?.username,
       password: service.credentials?.pass,
       apikey: service.credentials?.apikey,
