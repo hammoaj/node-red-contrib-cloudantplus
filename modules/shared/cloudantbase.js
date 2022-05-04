@@ -168,12 +168,15 @@ const connecWithRetry = (node, credentials, numberOfAttempt) => {
       .catch((err) => {
         if (numberOfAttempt <= node.retries) {
           utils.status.retry(node);
+          node.debug(`Retry: ${numberOfAttempt}`)
           setTimeout(() => {
             connecWithRetry(node, credentials, numberOfAttempt + 1);
           }, node.timeout);
         } else {
-          node.error(err.description, err);
-          utils.status.error(node, `Error ${err.description}`);
+          node.debug("Connecting retries exceeded");
+          node.error(err.message, err);
+          utils.status.error(node, `Error: ${err.message}`);
+          node.debug("Rejecting...");
           reject(err);
         }
       });
