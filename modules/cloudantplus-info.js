@@ -82,14 +82,15 @@ module.exports = (RED) => {
     node.timeout = n.timeout || utils.DEFAULT_TIMEOUT;
 
     // Connect to service and start listening to incoming msg
-    base
-      .connecWithRetry(node, node.cloudantConfig, 1)
-      .then((service) =>
-        node.on("input", (msg, send, done) =>
-          handleMessage(service, node, msg, send, done)
-        )
-      )
-      .catch((err) => node.error(err.description, err));
+    
+    node.on("input", (msg, send, done) => {
+      node.debug("Connecting...");
+      base
+      .connectWithRetry(node, node.cloudantConfig)
+      .then((service) => {node.debug("Connected..."); handleMessage(service, node, msg, send, done)})
+      .catch((err) => {node.debug("Error connecting..."); done(err)})
+    })
+    
   }
 
   // Export to NodeRED
