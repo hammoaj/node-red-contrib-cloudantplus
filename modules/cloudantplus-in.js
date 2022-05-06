@@ -45,6 +45,8 @@ const handleMessage = (service, node, msg, rawSend, done) => {
       options.include_docs,
       true
     );
+    options.includeDocs = options.include_docs;
+    delete options.include_docs;
     options.limit = options.limit || 200;
     base
       .searchQuery(service, dbName, node.design, node.index, query, options)
@@ -61,11 +63,13 @@ const handleMessage = (service, node, msg, rawSend, done) => {
       .then((body) => send(body))
       .catch((err) => done(err));
   } else if (operation === "_all_") {
-    //options.include_docs = utils.getBooleanIfUndefined(
-    //  options.include_docs,
-    //  true
-    //);
-    node.debug(JSON.stringify(options));
+    options.include_docs = utils.getBooleanIfUndefined(
+      options.include_docs,
+      true
+    );
+    options.includeDocs = options.include_docs;
+    delete options.include_docs;
+    
     base
       .allDocs(service, dbName, options)
       .then((body) => send(body))
