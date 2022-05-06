@@ -84,11 +84,10 @@ module.exports = (RED) => {
     // Connect to service and start listening to incoming msg
     
     node.on("input", (msg, send, done) => {
-      node.debug("Connecting...");
       base
       .connectWithRetry(node, node.cloudantConfig)
-      .then((service) => {node.debug("Connected..."); handleMessage(service, node, msg, send, done)})
-      .catch((err) => {node.debug("Error connecting..."); done(err)})
+      .then((service) => {handleMessage(service, node, msg, send, done)})
+      .catch((err) => {done(err)})
     })
     
   }

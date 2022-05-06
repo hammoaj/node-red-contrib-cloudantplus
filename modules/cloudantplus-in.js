@@ -30,17 +30,16 @@ const handleMessage = (service, node, msg, rawSend, done) => {
       payload = payload.result
     };
     if ('rows' in payload) {
-      payload = payload.rows.
-          map(function(el) {
+      payload = payload.rows
+        .filter((el) => (el.id.indexOf("_design/") < 0))    
+        .map((el) => {
               if ('doc' in el) {
                 return el.doc;
               } else {
                 return el;
               }
-          }).
-          filter(function(el) {
-              return el !== null && el !== undefined && (el._id.indexOf("_design/") < 0)
-          });
+          })
+        .filter((el) => (el !== null && el !== undefined));
     };
     rawSend({ ...msg, payload});
   };
