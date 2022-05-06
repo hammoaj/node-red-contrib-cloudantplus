@@ -136,8 +136,8 @@ module.exports = (RED) => {
       node.debug("Connecting...");
       base
       .connectWithRetry(node, node.cloudantConfig)
-      .then((service) => {node.debug("Connected..."); handleMessage(service, node, msg, send, done)})
-      .catch((err) => {node.debug("Error connecting..."); done(err)})
+      .then((service) => {handleMessage(service, node, msg, send, done)})
+      .catch((err) => {done(err)})
     })
 
   }

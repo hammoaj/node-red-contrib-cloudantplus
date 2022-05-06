@@ -24,9 +24,34 @@ const handleMessage = (service, node, msg, rawSend, done) => {
   const operation = msg.operation || node.search;
   const options = utils.getOptions(msg);
 
+  
   const send = (payload) => {
-    rawSend({ ...msg, payload });
+    if ('result' in payload) {
+      payload = payload.result
+    };
+    if ('rows' in payload) {
+      payload = payload.rows.
+          map(function(el) {
+              if ('doc' in el) {
+                return el.doc;
+              } else {
+                return el;
+              }
+          }).
+          filter(function(el) {
+              return el !== null && el !== undefined && (el._id.indexOf("_design/") < 0)
+          });
+    };
+    rawSend({ ...msg, payload});
   };
+
+  // Convert include_docs to includeDocs
+  options.include_docs = utils.getBooleanIfUndefined(
+    options.include_docs,
+    true
+  );
+  options.includeDocs = options.include_docs;
+  delete options.include_docs;
 
   if (operation === "_id_") {
     var id = utils.getDocumentId(msg.payload);
@@ -41,12 +66,6 @@ const handleMessage = (service, node, msg, rawSend, done) => {
       options.query ||
       options.q ||
       utils.formatSearchQuery(msg.payload);
-    options.include_docs = utils.getBooleanIfUndefined(
-      options.include_docs,
-      true
-    );
-    options.includeDocs = options.include_docs;
-    delete options.include_docs;
     options.limit = options.limit || 200;
     base
       .searchQuery(service, dbName, node.design, node.index, query, options)
@@ -63,13 +82,6 @@ const handleMessage = (service, node, msg, rawSend, done) => {
       .then((body) => send(body))
       .catch((err) => done(err));
   } else if (operation === "_all_") {
-    options.include_docs = utils.getBooleanIfUndefined(
-      options.include_docs,
-      true
-    );
-    options.includeDocs = options.include_docs;
-    delete options.include_docs;
-    
     base
       .allDocs(service, dbName, options)
       .then((body) => send(body))
@@ -107,8 +119,8 @@ module.exports = (RED) => {
       node.debug("Connecting...");
       base
       .connectWithRetry(node, node.cloudantConfig)
-      .then((service) => {node.debug("Connected..."); handleMessage(service, node, msg, send, done)})
-      .catch((err) => {node.debug("Error connecting..."); done(err)})
+      .then((service) => {handleMessage(service, node, msg, send, done)})
+      .catch((err) => {done(err)})
     })
     
   }
