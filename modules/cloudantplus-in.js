@@ -44,14 +44,6 @@ const handleMessage = (service, node, msg, rawSend, done) => {
     rawSend({ ...msg, payload});
   };
 
-  // Convert include_docs to includeDocs
-  options.include_docs = utils.getBooleanIfUndefined(
-    options.include_docs,
-    true
-  );
-  options.includeDocs = options.include_docs;
-  delete options.include_docs;
-
   if (operation === "_id_") {
     var id = utils.getDocumentId(msg.payload);
     base
@@ -76,11 +68,23 @@ const handleMessage = (service, node, msg, rawSend, done) => {
       .then((body) => send(body))
       .catch((err) => done(err));
   } else if (operation === "_view_") {
+    options.include_docs = utils.getBooleanIfUndefined(
+      options.include_docs,
+      true
+    );
+    options.includeDocs = options.include_docs;
+    delete options.include_docs;
     base
       .byView(service, dbName, node.design, node.index, options)
       .then((body) => send(body))
       .catch((err) => done(err));
   } else if (operation === "_all_") {
+    options.include_docs = utils.getBooleanIfUndefined(
+      options.include_docs,
+      true
+    );
+    options.includeDocs = options.include_docs;
+    delete options.include_docs;
     base
       .allDocs(service, dbName, options)
       .then((body) => send(body))

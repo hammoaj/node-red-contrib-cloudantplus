@@ -34,6 +34,16 @@ module.exports = (RED) => {
       this.username = this.credentials?.username;
       this.password = this.credentials?.pass;
     }
+
+    const t = {
+      name: this.name,
+      url: this.url,
+      apikey: this.apikey,
+      username: this.username,
+      password: this.password
+    };
+
+    console.log(JSON.stringify(t))
   }
 
   // Export to NodeRED

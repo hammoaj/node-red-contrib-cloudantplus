@@ -131,7 +131,7 @@ module.exports = (RED) => {
     node.timeout = n.timeout || utils.DEFAULT_TIMEOUT;
 
     // Connect to service and start listening to incoming msg
-
+    node.debug(`cloudantConfig: ${node.cloudantConfig}`)
     node.on("input", (msg, send, done) => {
       node.debug("Connecting...");
       base
