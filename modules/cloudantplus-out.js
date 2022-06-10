@@ -48,7 +48,7 @@ const handleMessage = (service, node, msg, rawSend, done) => {
 
 // Deletion of one document
 const handleDelete = (service, rawDoc, database, send, done) => {
-  const doc = base.parseMessage(rawDoc);
+  const doc = utils.parseMessage(rawDoc);
   if ("_rev" in doc && "_id" in doc) {
     service
       .deleteDocument({

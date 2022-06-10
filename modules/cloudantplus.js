@@ -42,8 +42,6 @@ module.exports = (RED) => {
       username: this.username,
       password: this.password
     };
-
-    console.log(JSON.stringify(t))
   }
 
   // Export to NodeRED

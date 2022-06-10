@@ -37,7 +37,6 @@ const { CloudantV1 } = ibmsdk;
 const getCloudantConfig = (RED, node) => {
   if (node.service === "_ext_") {
     const service = RED.nodes.getNode(node.cloudant);
-    console.log(`Service: ${JSON.stringify(service)}`)
     return {
       url: service.url,
       username: service.credentials?.username,
@@ -96,17 +95,14 @@ const getCloudantServices = () => {
 
 // Cloudant authenticator, IAM and Basic aware
 const createAuthenticator = (credentials) => {
-  console.log(`Credentials: ${JSON.stringify(credentials)}`)
   if (credentials) {
     if (credentials.apikey) {
       // IBM IAM compliant
-      console.log(`Using IAM`);
       return new cloudSDK.IamAuthenticator({
         apikey: credentials.password,
       });
     } else {
       // Fallback to Basic AUTH
-      console.log(`Using Basic`);
       return new cloudSDK.BasicAuthenticator({
         username: credentials.username,
         password: credentials.password,
