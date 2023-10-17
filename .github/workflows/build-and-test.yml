@@ -1,0 +1,56 @@
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    services:
+      couchdb:
+        image: couchdb
+        ports:
+          - 5984:5984
+        env:
+          COUCHDB_USER: admin
+          COUCHDB_PASSWORD: password
+
+    strategy:
+      matrix:
+        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+        node-version:
+        # - 12.x
+          - 14.x
+          - 16.x
+
+    steps:
+      - name: Sleep to give couchDB a chance
+        run: sleep 10s
+        shell: bash
+        
+      - name: Create couchDB system database _global_changes
+        run: curl -X PUT --user admin:password http://127.0.0.1:5984/_global_changes
+
+      - name: Create couchDB system database _replicator
+        run: curl -X PUT --user admin:password http://127.0.0.1:5984/_replicator
+
+      - name: Create couchDB system database _users
+        run: curl -X PUT --user admin:password http://127.0.0.1:5984/_users
+
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v2
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Tests
+        run: npm test
