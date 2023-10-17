@@ -48,7 +48,7 @@ const handleMessage = (service, node, msg, rawSend, done) => {
 
 // Deletion of one document
 const handleDelete = (service, rawDoc, database, send, done) => {
-  const doc = base.parseMessage(rawDoc);
+  const doc = utils.parseMessage(rawDoc);
   if ("_rev" in doc && "_id" in doc) {
     service
       .deleteDocument({
@@ -131,15 +131,17 @@ module.exports = (RED) => {
     node.timeout = n.timeout || utils.DEFAULT_TIMEOUT;
 
     // Connect to service and start listening to incoming msg
-    base
-      .connecWithRetry(node, node.cloudantConfig, 1)
-      .then((service) =>
-        node.on("input", (msg, send, done) =>
-          handleMessage(service, node, msg, send, done)
-        )
-      )
-      .catch((err) => node.error(err.description, err));
+    node.debug(`cloudantConfig: ${node.cloudantConfig}`)
+    node.on("input", (msg, send, done) => {
+      node.debug("Connecting...");
+      base
+      .connectWithRetry(node, node.cloudantConfig)
+      .then((service) => {handleMessage(service, node, msg, send, done)})
+      .catch((err) => {done(err)})
+    })
+
   }
+
 
   // Export to NodeRED
   RED.nodes.registerType("cloudantplus out", CloudantOutNode);

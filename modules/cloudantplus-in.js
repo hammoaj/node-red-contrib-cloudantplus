@@ -24,8 +24,24 @@ const handleMessage = (service, node, msg, rawSend, done) => {
   const operation = msg.operation || node.search;
   const options = utils.getOptions(msg);
 
+  
   const send = (payload) => {
-    rawSend({ ...msg, payload });
+    if ('result' in payload) {
+      payload = payload.result
+    };
+    if ('rows' in payload) {
+      payload = payload.rows
+        .filter((el) => (el.id.indexOf("_design/") < 0))    
+        .map((el) => {
+              if ('doc' in el) {
+                return el.doc;
+              } else {
+                return el;
+              }
+          })
+        .filter((el) => (el !== null && el !== undefined));
+    };
+    rawSend({ ...msg, payload});
   };
 
   if (operation === "_id_") {
@@ -41,10 +57,6 @@ const handleMessage = (service, node, msg, rawSend, done) => {
       options.query ||
       options.q ||
       utils.formatSearchQuery(msg.payload);
-    options.include_docs = utils.getBooleanIfUndefined(
-      options.include_docs,
-      true
-    );
     options.limit = options.limit || 200;
     base
       .searchQuery(service, dbName, node.design, node.index, query, options)
@@ -56,6 +68,12 @@ const handleMessage = (service, node, msg, rawSend, done) => {
       .then((body) => send(body))
       .catch((err) => done(err));
   } else if (operation === "_view_") {
+    options.include_docs = utils.getBooleanIfUndefined(
+      options.include_docs,
+      true
+    );
+    options.includeDocs = options.include_docs;
+    delete options.include_docs;
     base
       .byView(service, dbName, node.design, node.index, options)
       .then((body) => send(body))
@@ -65,6 +83,8 @@ const handleMessage = (service, node, msg, rawSend, done) => {
       options.include_docs,
       true
     );
+    options.includeDocs = options.include_docs;
+    delete options.include_docs;
     base
       .allDocs(service, dbName, options)
       .then((body) => send(body))
@@ -97,14 +117,15 @@ module.exports = (RED) => {
     node.timeout = n.timeout || utils.DEFAULT_TIMEOUT;
 
     // Connect to service and start listening to incoming msg
-    base
-      .connecWithRetry(node, node.cloudantConfig, 1)
-      .then((service) =>
-        node.on("input", (msg, send, done) =>
-          handleMessage(service, node, msg, send, done)
-        )
-      )
-      .catch((err) => node.error(err.description, err));
+    
+    node.on("input", (msg, send, done) => {
+      node.debug("Connecting...");
+      base
+      .connectWithRetry(node, node.cloudantConfig)
+      .then((service) => {handleMessage(service, node, msg, send, done)})
+      .catch((err) => {done(err)})
+    })
+    
   }
 
   // Export to NodeRED

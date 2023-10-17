@@ -38,18 +38,18 @@ const getCloudantConfig = (RED, node) => {
   if (node.service === "_ext_") {
     const service = RED.nodes.getNode(node.cloudant);
     return {
-      url: service.host,
+      url: service.url,
       username: service.credentials?.username,
       password: service.credentials?.pass,
-      apikey: service.credentials?.apikey,
+      apikey: service?.apikey,
     };
   } else if (node.service !== "") {
     const service = getCloudantService(node.service);
     return {
-      url: service.credentials?.url,
+      url: service.url,
       username: service.credentials?.username,
       password: service.credentials?.password,
-      apikey: service.credentials?.apikey,
+      apikey: service?.apikey,
     };
   } else {
     utils.status.error(node, "Configuration missing");
@@ -156,28 +156,48 @@ const getDbInfo = (service, dbName) => {
  * @param {int} numberOfAttempt
  * @returns
  */
-const connecWithRetry = (node, credentials, numberOfAttempt) => {
+
+const sleep = (time) => {
+  return new Promise((resolve) => {
+    setTimeout(resolve, time)
+  })
+};
+
+async function connectWithRetry(node, credentials) {
   utils.status.disconnected(node);
+  let success = false;
+  let service
+  let err
+
+  for (let attempt = 1; attempt <= node.retries; attempt++) {
+    utils.status.retry(node);
+    await connectToService(credentials)
+    .then((s) => createDatabase(s, node.database))
+    .then((s) => {
+      utils.status.connected(node);
+      service = s;
+      success = true;
+      node.debug(`Attempt ${attempt} succeeded`);
+    })
+    .catch((e) => {
+      err = e;
+      node.debug(`Attempt ${attempt} failed`);
+    });
+    if (success) {
+      break
+    } else {
+      await sleep(node.timeout)
+    }
+  }
+  
   return new Promise((resolve, reject) => {
-    connectToService(credentials)
-      .then((service) => createDatabase(service, node.database))
-      .then((service) => {
-        utils.status.connected(node);
-        resolve(service);
-      })
-      .catch((err) => {
-        if (numberOfAttempt <= node.retries) {
-          utils.status.retry(node);
-          setTimeout(() => {
-            connecWithRetry(node, credentials, numberOfAttempt + 1);
-          }, node.timeout);
-        } else {
-          node.error(err.description, err);
-          utils.status.error(node, `Error ${err.description}`);
-          reject(err);
-        }
-      });
-  });
+    if (success) {
+      resolve(service)
+    } else {
+      utils.status.error(node, err.message);
+      reject(err)
+    }
+  })
 };
 
 // Create a database if it doesn't already exist
@@ -355,7 +375,7 @@ module.exports = {
   bulkDocumentsWithRetry,
   byView,
   connectToService,
-  connecWithRetry,
+  connectWithRetry,
   createAuthenticator,
   createDatabase,
   findBySelector,
