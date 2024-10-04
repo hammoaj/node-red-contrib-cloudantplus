@@ -243,7 +243,7 @@ const insertDocumentWithRetry = (service, database, doc, attempts) => {
       .then((body) => resolve(body))
       .catch((err) => {
         if (attempts > 0) {
-          insertDoc(service, database, doc, attempts - 1)
+          insertDocument(service, database, doc, attempts - 1)
             .then((body) => resolve(body))
             .catch((err2) => reject(err2));
         } else {
@@ -289,7 +289,7 @@ const bulkDocumentsWithRetry = (service, database, docs, attempts) => {
       .then((body) => resolve(body))
       .catch((err) => {
         if (attempts > 0) {
-          bulkDocs(service, database, docs, attempts - 1)
+          bulkDocuments(service, database, docs, attempts - 1)
             .then((body) => resolve(body))
             .catch((err2) => reject(err2));
         } else {
